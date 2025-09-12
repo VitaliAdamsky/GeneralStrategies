@@ -1,6 +1,9 @@
 import pandas as pd
 from pathlib import Path
 from rich.progress import track
+from rich.console import Console
+
+console = Console()
 
 def load_market_data(symbols, timeframes, base_dir="kline_data", start_date=None, end_date=None):
     """
@@ -15,7 +18,7 @@ def load_market_data(symbols, timeframes, base_dir="kline_data", start_date=None
         for timeframe in track(timeframes, description=f"[cyan]Загрузка {symbol}...[/cyan]"):
             csv_path = Path(base_dir) / timeframe / f"{symbol}.csv"
             if not csv_path.exists():
-                print(f"[bold red]❌ Нет файла: {csv_path}[/bold red]")
+                console.print(f"[bold red]❌ Нет файла: {csv_path}[/bold red]")
                 continue
 
             try:
@@ -30,8 +33,9 @@ def load_market_data(symbols, timeframes, base_dir="kline_data", start_date=None
                     df = df[df.index <= pd.to_datetime(end_date)]
 
                 market_data[symbol][timeframe] = df
-                print(f"[green]✅ Загружено: {symbol} {timeframe} ({len(df)} строк)[/green]")
+                console.print(f"[green]✅ Загружено: {symbol} {timeframe} ({len(df)} строк)[/green]")
             except Exception as e:
-                print(f"[bold red]⚠️ Ошибка при загрузке {symbol} {timeframe}: {e}[/bold red]")
+                console.print(f"[bold red]⚠️ Ошибка при загрузке {symbol} {timeframe}: {e}[/bold red]")
 
     return market_data
+
