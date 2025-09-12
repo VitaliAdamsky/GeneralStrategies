@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Анализ корреляции по таймфреймам</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #1a1a2e;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #242444;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        h1 {
+            color: #ffffff;
+            border-bottom: 2px solid #4a4a70;
+            padding-bottom: 10px;
+        }
+
+        .meta-info {
+            background-color: #2a2a50;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            font-size: 0.9em;
+        }
+
+        .meta-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .meta-item strong {
+            color: #9a9aff;
+            margin-bottom: 5px;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #4a4a70;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            color: #b0b0d0;
+            font-size: 1em;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .tab.active {
+            color: #ffffff;
+            border-bottom: 3px solid #7a7aff;
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #3a3a60;
+        }
+
+        th {
+            background-color: #2a2a50;
+            color: #9a9aff;
+        }
+
+        tr:nth-child(even) {
+            background-color: #2a2a50;
+        }
+
+        tr:hover {
+            background-color: #3a3a60;
+        }
+
+        .corr-cell {
+            font-weight: bold;
+            padding: 4px 8px;
+            border-radius: 4px;
+            color: #1a1a2e;
+            text-align: center;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        #loading,
+        #error {
+            text-align: center;
+            font-size: 1.2em;
+            padding: 50px;
+            color: #ffc107;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>Отчет по корреляции монет</h1>
+        <div id="meta" class="meta-info"></div>
+        <div id="tabs-container" class="tabs"></div>
+
+        <div id="loading">Загрузка данных...</div>
+        <div id="error" class="hidden"></div>
+
+        <div id="content-container"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const loadingEl = document.getElementById('loading');
+            const metaEl = document.getElementById('meta');
+            const tabsContainerEl = document.getElementById('tabs-container');
+            const contentContainerEl = document.getElementById('content-container');
+            const errorEl = document.getElementById('error');
+
+            function getCorrelationColor(corr) {
+                // Hue from 0 (red) to 120 (green), mapped from correlation 0.5 to 1.0
+                const hue = Math.max(0, ((corr - 0.5) / 0.5) * 120);
+                return `hsl(${hue}, 80%, 60%)`;
+            }
+
+            try {
+                const response = await fetch('correlations_multi_tf.json');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const fullData = await response.json();
+                loadingEl.classList.add('hidden');
+
+                // 1. Populate Meta Info
+                const meta = fullData.meta;
+                metaEl.innerHTML = `
+                    <div class="meta-item"><strong>Базовый актив:</strong> ${meta.base_coin}</div>
+                    <div class="meta-item"><strong>Топ N монет:</strong> ${meta.top_n}</div>
+                    <div class="meta-item"><strong>История (дней):</strong> ${meta.history_days}</div>
+                    <div class="meta-item"><strong>Дата расчета:</strong> ${new Date(meta.computed_at).toLocaleString()}</div>
+                `;
+
+                // 2. Create Tabs and Content containers
+                const timeframes = meta.timeframes;
+                timeframes.forEach((tf, index) => {
+                    // Create Tab
+                    const tab = document.createElement('button');
+                    tab.className = 'tab';
+                    tab.textContent = tf;
+                    tab.dataset.timeframe = tf;
+                    if (index === 0) tab.classList.add('active');
+                    tabsContainerEl.appendChild(tab);
+
+                    // Create Content Div
+                    const contentDiv = document.createElement('div');
+                    contentDiv.id = `content-${tf}`;
+                    contentDiv.className = 'table-container';
+                    if (index !== 0) contentDiv.classList.add('hidden');
+
+                    // Create and populate table
+                    const table = document.createElement('table');
+                    table.innerHTML = `
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Символ</th>
+                                <th>Корреляция</th>
+                                <th>Совпадающих баров</th>
+                            </tr>
+                        </thead>
+                    `;
+                    const tbody = document.createElement('tbody');
+                    const correlationData = fullData[tf];
+
+                    // The data is already an object, sort keys by correlation
+                    const sortedSymbols = Object.keys(correlationData).sort((a, b) => {
+                        return correlationData[b].correlation - correlationData[a].correlation;
+                    });
+
+                    sortedSymbols.forEach((symbol, rank) => {
+                        const data = correlationData[symbol];
+                        const row = tbody.insertRow();
+                        row.innerHTML = `
+                            <td>${rank + 1}</td>
+                            <td>${symbol}</td>
+                            <td><span class="corr-cell" style="background-color: ${getCorrelationColor(data.correlation)}">${data.correlation.toFixed(4)}</span></td>
+                            <td>${data.matching_bars}</td>
+                        `;
+                    });
+
+                    table.appendChild(tbody);
+                    contentDiv.appendChild(table);
+                    contentContainerEl.appendChild(contentDiv);
+                });
+
+                // 3. Add Tab click logic
+                tabsContainerEl.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('tab')) {
+                        const selectedTf = e.target.dataset.timeframe;
+
+                        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                        e.target.classList.add('active');
+
+                        document.querySelectorAll('.table-container').forEach(c => c.classList.add('hidden'));
+                        document.getElementById(`content-${selectedTf}`).classList.remove('hidden');
+                    }
+                });
+
+            } catch (error) {
+                loadingEl.classList.add('hidden');
+                errorEl.textContent = `Ошибка при загрузке данных: ${error.message}. Убедитесь, что файл 'correlations_multi_tf.json' находится в той же папке.`;
+                errorEl.classList.remove('hidden');
+                console.error("Error loading or parsing JSON:", error);
+            }
+        });
+    </script>
+</body>
+
+</html>

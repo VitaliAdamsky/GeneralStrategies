@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ширина Рынка: Скорость KAMA (Все ТФ)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #1a1b26;
+            --card-bg-color: #24283b;
+            --text-color: #c0caf5;
+            --header-color: #bb9af7;
+            --border-color: #414868;
+            --font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+            --blue-color: #7aa2f7;
+            --red-color: #f7768e;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: var(--font-family);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+
+        .header,
+        .chart-container,
+        .upload-card {
+            background-color: var(--card-bg-color);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+        }
+
+        .header h1 {
+            color: var(--header-color);
+            text-align: center;
+            margin: 0 0 10px 0;
+        }
+
+        .chart-box {
+            width: 100%;
+            height: 75vh;
+        }
+
+        .upload-card {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .upload-card label {
+            background-color: var(--blue-color);
+            color: var(--bg-color);
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+        }
+
+        .upload-card label:hover {
+            background-color: #9abdf5;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        #error {
+            text-align: center;
+            color: var(--red-color);
+            margin-top: 15px;
+            display: none;
+        }
+
+        #meta-info {
+            text-align: center;
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div id="upload-section" class="upload-card">
+            <h2>Визуализатор Ширины Рынка (Скорость KAMA)</h2>
+            <p>Пожалуйста, выберите ваш <code>market_breadth_kama_speed.json</code> файл.</p>
+            <label for="jsonFileInput">Выбрать файл</label>
+            <input type="file" id="jsonFileInput" accept=".json">
+            <p id="error"></p>
+        </div>
+
+        <div id="dashboard" style="display: none;">
+            <div class="header">
+                <h1>Ширина Рынка по Скорости KAMA (Все таймфреймы)</h1>
+                <p id="meta-info"></p>
+            </div>
+            <div class="chart-container">
+                <div id="main-chart" class="chart-box"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('jsonFileInput').addEventListener('change', function (event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const fullData = JSON.parse(e.target.result);
+                    document.getElementById('upload-section').style.display = 'none';
+                    document.getElementById('dashboard').style.display = 'block';
+                    renderDashboard(fullData);
+                } catch (err) {
+                    const errorContainer = document.getElementById('error');
+                    errorContainer.textContent = `Ошибка! Не удалось обработать файл. (${err.message})`;
+                    errorContainer.style.display = 'block';
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        function formatDate(dateStr) {
+            const d = new Date(dateStr);
+            const year = d.getFullYear().toString().slice(-2);
+            const month = ('0' + (d.getMonth() + 1)).slice(-2);
+            const day = ('0' + d.getDate()).slice(-2);
+            const hours = ('0' + d.getHours()).slice(-2);
+            const minutes = ('0' + d.getMinutes()).slice(-2);
+            return `${year}-${month}-${day} ${hours}:${minutes}`;
+        }
+
+        function renderDashboard(fullData) {
+            const meta = fullData.meta;
+            document.getElementById('meta-info').innerText = `KAMA(${meta.kama_config.period}, ${meta.kama_config.fast}, ${meta.kama_config.slow}) | Топ-${meta.top_n_coins_per_tf} монет | История: ${meta.history_days} дней`;
+
+            const myChart = echarts.init(document.getElementById('main-chart'), 'dark');
+            const timeframes = Object.keys(fullData.data);
+            const colors = {
+                '4h': '#7aa2f7',  // Blue
+                '8h': '#f7768e',  // Red
+                '12h': '#e0af68', // Yellow/Orange
+                '1d': '#9ece6a'   // Green
+            };
+            const series = [];
+            const legendData = [];
+
+            timeframes.forEach(tf => {
+                // Линия для Fast
+                legendData.push(`${tf} Fast`);
+                series.push({
+                    name: `${tf} Fast`,
+                    type: 'line',
+                    smooth: true,
+                    showSymbol: false,
+                    data: fullData.data[tf].map(item => [item.date, item.pct_speed_fast]),
+                    lineStyle: { color: colors[tf], width: 2.5, type: 'solid' }
+                });
+
+                // Линия для Slow
+                legendData.push(`${tf} Slow`);
+                series.push({
+                    name: `${tf} Slow`,
+                    type: 'line',
+                    smooth: true,
+                    showSymbol: false,
+                    data: fullData.data[tf].map(item => [item.date, item.pct_speed_slow]),
+                    lineStyle: { color: colors[tf], width: 2, type: 'dashed' }
+                });
+            });
+
+            // Добавляем линии уровней
+            series.push({
+                type: 'line',
+                data: [],
+                markLine: {
+                    silent: true, symbol: 'none', lineStyle: { type: 'dashed' },
+                    data: [
+                        { yAxis: 70, name: 'Зона доминирования', label: { position: 'end', formatter: '70%', color: '#9ece6a', fontWeight: 'bold' }, lineStyle: { color: '#9ece6a' } },
+                        { yAxis: 50, name: 'Центр', label: { position: 'end', formatter: '50%' }, lineStyle: { color: 'var(--border-color)' } },
+                        { yAxis: 30, name: 'Зона слабости', label: { position: 'end', formatter: '30%', color: '#f7768e', fontWeight: 'bold' }, lineStyle: { color: '#f7768e' } }
+                    ]
+                }
+            });
+
+            const option = {
+                backgroundColor: 'transparent',
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'cross', label: { backgroundColor: '#6a7985' } },
+                    formatter: (params) => {
+                        let tooltipText = formatDate(params[0].axisValue);
+                        params.sort((a, b) => a.seriesName > b.seriesName ? 1 : -1);
+                        params.forEach(param => {
+                            if (param.value && param.value[1] != null && param.seriesName) {
+                                tooltipText += `<br/><span style="display:inline-block;margin-right:5px;border-radius:10px;width:10px;height:10px;background-color:${param.color};"></span><strong>${param.seriesName}:</strong> ${param.value[1].toFixed(2)}%`;
+                            }
+                        });
+                        return tooltipText;
+                    }
+                },
+                legend: { top: 10, data: legendData, textStyle: { color: 'var(--text-color)' } },
+                grid: { left: '3%', right: '4%', bottom: '15%', top: '15%', containLabel: true },
+                toolbox: { feature: { saveAsImage: {} } },
+                xAxis: {
+                    type: 'time', boundaryGap: false,
+                    axisLine: { lineStyle: { color: 'var(--border-color)' } },
+                    axisLabel: { formatter: (value) => formatDate(value) }
+                },
+                yAxis: {
+                    type: 'value', min: 0, max: 100,
+                    axisLine: { lineStyle: { color: 'var(--border-color)' } },
+                    axisLabel: { formatter: '{value}%' }
+                },
+                dataZoom: [{ type: 'inside' }, { type: 'slider' }],
+                series: series
+            };
+
+            myChart.setOption(option);
+            window.addEventListener('resize', () => myChart.resize());
+        }
+    </script>
+</body>
+
+</html>
