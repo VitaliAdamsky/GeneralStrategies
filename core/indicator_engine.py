@@ -1,45 +1,24 @@
 import pandas as pd
-from rich.console import Console
 
-console = Console()
+def apply_indicators(df, params):
+    # === RSI ===
+    if "rsi_period" in params:
+        period = params["rsi_period"]
+        delta = df["close"].diff()
+        gain = delta.where(delta > 0, 0)
+        loss = -delta.where(delta < 0, 0)
+        avg_gain = gain.rolling(window=period).mean()
+        avg_loss = loss.rolling(window=period).mean()
+        rs = avg_gain / avg_loss
+        df["rsi"] = 100 - (100 / (1 + rs))
 
-def apply_indicators(df, indicators):
-    """
-    df: исходный DataFrame с колонками open, high, low, close, volume
-    indicators: список словарей:
-        [
-            {"name": "rsi", "params": {"window": 14}, "group": "momentum"},
-            {"name": "atr", "params": {"window": 14}, "group": "volatility"},
-            {"name": "custom_func", "params": {...}, "group": "custom", "func": callable}
-        ]
-    Возвращает df с добавленными колонками
-    """
-    for ind in indicators:
-        name = ind["name"]
-        params = ind.get("params", {})
-        group = ind.get("group", "misc")
-
-        try:
-            if "func" in ind:
-                # Кастомная функция
-                df = ind["func"](df, **params)
-                console.print(f"[green]✅ Custom indicator applied: {name}[/green]")
-            else:
-                # TA-Lib через pandas-ta
-                if name.lower() == "rsi":
-                    df[f"{group}_{name}_{params.get('window', '')}"] = ta.momentum.RSIIndicator(close=df["close"], **params).rsi()
-                elif name.lower() == "atr":
-                    df[f"{group}_{name}_{params.get('window', '')}"] = ta.volatility.AverageTrueRange(high=df["high"], low=df["low"], close=df["close"], **params).average_true_range()
-                elif name.lower() == "ema":
-                    df[f"{group}_{name}_{params.get('window', '')}"] = ta.trend.EMAIndicator(close=df["close"], **params).ema_indicator()
-                elif name.lower() == "macd":
-                    macd = ta.trend.MACD(close=df["close"], **params)
-                    df[f"{group}_{name}_line"] = macd.macd()
-                    df[f"{group}_{name}_signal"] = macd.macd_signal()
-                    df[f"{group}_{name}_diff"] = macd.macd_diff()
-                else:
-                    console.print(f"[yellow]⚠️ Unknown indicator: {name} — skipped[/yellow]")
-        except Exception as e:
-            console.print(f"[red]❌ Error applying {name}: {e}[/red]")
+    # === ATR ===
+    if "atr_period" in params:
+        period = params["atr_period"]
+        high_low = df["high"] - df["low"]
+        high_close = (df["high"] - df["close"].shift()).abs()
+        low_close = (df["low"] - df["close"].shift()).abs()
+        tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+        df["atr"] = tr.rolling(window=period).mean()
 
     return df

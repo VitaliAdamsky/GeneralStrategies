@@ -9,11 +9,12 @@ from .reporting import (
     save_trades,
     save_trades_full,
     save_equity_curve,
-    save_quantstats_report,
-    save_exit_log
+    save_exit_log,
+    save_entry_log,
+    save_equity_plot_png   
 )
+from .visualization import plot_strategy_chart
 from .take_profit_config import TakeProfitMode, ExitType
-# from .strategy_runner import run_strategy  # если добавишь
 
 __all__ = [
     "load_market_data",
@@ -26,9 +27,10 @@ __all__ = [
     "save_trades",
     "save_trades_full",
     "save_equity_curve",
-    "save_quantstats_report",
     "save_exit_log",
+    "save_entry_log", 
+    "save_equity_plot_png",  
+    "plot_strategy_chart",
     "TakeProfitMode",
-    "ExitType",
-    # "run_strategy"
+    "ExitType"
 ]

@@ -1,76 +1,66 @@
-import matplotlib
-matplotlib.use("Agg")  # отключает GUI-бэкэнд, предотвращает инициализацию Tkinter
-
-import os
-import json
-import csv
-import hashlib
-from pathlib import Path
-from datetime import datetime
 import matplotlib.pyplot as plt
 import pandas as pd
-from rich.console import Console
+import json
 
-console = Console()
-RESULTS_DIR = Path("results")
-RESULTS_DIR.mkdir(exist_ok=True)
+def save_equity_plot_png(result_path, equity_df):
+    if equity_df.empty:
+        return
 
-def hash_params(params: dict) -> str:
-    # Конвертируем словари в строки для стабильного хеширования
-    serializable_params = {k: str(v) for k, v in params.items()}
-    raw = json.dumps(serializable_params, sort_keys=True)
-    return hashlib.md5(raw.encode()).hexdigest()[:4]
-
-def generate_result_path(symbol: str, timeframe: str, params: dict) -> Path:
-    timestamp = datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
-    suffix = hash_params(params)
-    folder_name = f"{symbol}_{timeframe}_{timestamp}_{suffix}"
-    path = RESULTS_DIR / folder_name
-    path.mkdir(parents=True, exist_ok=True)
-    console.print(f"[bold green]📁 Создана папка отчёта: {path}[/bold green]")
-    return path
-
-def save_params(path: Path, params: dict):
-    # Преобразуем словари в строки для корректной сериализации
-    params_to_save = {k: str(v) for k, v in params.items()}
-    with open(path / f"{path.name}_params.json", "w", encoding="utf-8") as f:
-        json.dump(params_to_save, f, indent=2, ensure_ascii=False)
-    console.print(f"[green]✅ Параметры сохранены[/green]")
-
-def save_metrics(path: Path, metrics: dict):
-    with open(path / f"{path.name}_metrics.csv", "w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerow(["Metric", "Value"])
-        for k, v in metrics.items():
-            writer.writerow([k, v])
-    console.print(f"[green]✅ Метрики сохранены[/green]")
-
-def save_trades_full(path: Path, trades_full_df: pd.DataFrame):
-    trades_full_df.to_csv(path / f"{path.name}_trades_full.csv", index=False)
-    console.print(f"[green]✅ Все сделки сохранены[/green]")
-
-def save_equity_curve(path: Path, equity_df: pd.DataFrame):
     plt.figure(figsize=(10, 4))
-    plt.plot(equity_df.index, equity_df["equity"], label="Equity Curve", color="blue")
+    plt.plot(equity_df.index, equity_df["equity"], color="blue", linewidth=2)
     plt.title("Equity Curve")
     plt.xlabel("Date")
     plt.ylabel("Portfolio Value")
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig(path / f"{path.name}_equity_curve.png", dpi=150)
+    plt.savefig(result_path / "equity.png")
     plt.close()
-    console.print(f"[green]✅ График доходности сохранён[/green]")
 
-def save_quantstats_report(path: Path, html: str):
-    with open(path / f"{path.name}_quantstats.html", "w", encoding="utf-8") as f:
-        f.write(html)
-    console.print(f"[green]✅ QuantStats отчёт сохранён[/green]")
+def generate_result_path(symbol, timeframe, strategy_params):
+    from pathlib import Path
+    from datetime import datetime
+    import hashlib
 
-def save_exit_log(path: Path, exit_events: list):
-    df = pd.DataFrame(exit_events)
-    df.to_csv(path / f"{path.name}_exit_log.csv", index=False)
-    console.print(f"[green]✅ Лог выходов сохранён: {path.name}_exit_log.csv[/green]")
+    base_path = Path("results") / symbol / timeframe
+    base_path.mkdir(parents=True, exist_ok=True)
 
-def save_trades(path: Path, trades_df: pd.DataFrame):
-    trades_df.to_csv(path / f"{path.name}_trades.csv", index=False)
-    console.print(f"[green]✅ Агрегированные сделки сохранены[/green]")
+    strategy_id = strategy_params.get("strategy_id", "")
+    run_id = strategy_params.get("run_id", datetime.now().strftime("%Y%m%d_%H%M%S"))
+    folder_name = f"{run_id}_{strategy_id}"
+    result_path = base_path / folder_name
+    result_path.mkdir(parents=True, exist_ok=True)
+
+    return result_path
+
+def save_params(result_path, params):
+    with open(result_path / "params.json", "w") as f:
+        json.dump(params, f, indent=2)
+
+def save_metrics(result_path, metrics):
+    df = pd.DataFrame([metrics])
+    df.to_csv(result_path / "metrics.csv", index=False)
+
+def save_trades(result_path, trades_df):
+    trades_df.to_csv(result_path / "trades.csv", index=False)
+
+def save_trades_full(result_path, trades_df):
+    trades_df.to_csv(result_path / "trades_full.csv", index=False)
+
+def save_equity_curve(result_path, equity_df):
+    equity_df.to_csv(result_path / "equity_curve.csv")
+
+def save_exit_log(result_path, exit_log):
+    if not exit_log:
+        return
+    df = pd.DataFrame(exit_log)
+    df["timestamp"] = pd.to_datetime(df["timestamp"])
+    df.sort_values("timestamp", inplace=True)
+    df.to_csv(result_path / "exit_log.csv", index=False)
+
+def save_entry_log(result_path, entry_log):
+    if not entry_log:
+        return
+    df = pd.DataFrame(entry_log)
+    df["timestamp"] = pd.to_datetime(df["timestamp"])
+    df.sort_values("timestamp", inplace=True)
+    df.to_csv(result_path / "entry_log.csv", index=False)
