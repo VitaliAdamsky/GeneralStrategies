@@ -1,0 +1,22 @@
+{
+  "rsi_period": 21,
+  "atr_period": 14,
+  "take_profit": {
+    "mode": "full",
+    "levels": [
+      {
+        "percent": 1.0,
+        "exit_type": "atr",
+        "params": {
+          "mult": 4.0
+        }
+      }
+    ]
+  },
+  "run_id": "20250913_035218",
+  "strategy_id": "9e60e3eb",
+  "symbol": "ETHUSDT",
+  "timeframe": "12H",
+  "start_date": "2023-01-01",
+  "end_date": "2024-12-31"
+}

@@ -1,0 +1,2 @@
+strategy_id,run_id,symbol,timeframe,Initial_portfolio_value,Final_portfolio_value,Final_portfolio_growth_percent,Total_trades,Winning_trades,Losing_trades,Net_PnL,Average_Win_pnl,Average_Loss_pnl,Win_rate,Loss_rate,Profit_factor,Avg_trade_size,Avg_pnl_comm,Duration_avg_sec,Duration_max_sec,Duration_min_sec
+a0e53ad5,20250913_035757,ETHUSDT,1D,100000,100142.95,0.14,2,2,0,142.95,71.48,0.0,1.0,0.0,inf,1.0,73.89,,,
