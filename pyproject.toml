@@ -27,7 +27,8 @@ dependencies = [
   "rich>=13.7",                     # форматированный вывод
   "python-dateutil>=2.8",           # работа с датами
   "ipython>=8.0",  # ✅ нужен для quantstats.reports
-  "plotly (>=6.3.0,<7.0.0)"
+  "plotly (>=6.3.0,<7.0.0)",
+  "youtube-transcript-api (>=1.2.2,<2.0.0)",
 ]
 
 [build-system]
