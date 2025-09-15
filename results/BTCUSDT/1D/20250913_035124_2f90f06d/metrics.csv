@@ -1,2 +1,0 @@
-strategy_id,run_id,symbol,timeframe,Initial_portfolio_value,Final_portfolio_value,Final_portfolio_growth_percent,Total_trades,Winning_trades,Losing_trades,Net_PnL,Average_Win_pnl,Average_Loss_pnl
-2f90f06d,20250913_035124,BTCUSDT,1D,100000,118587.33,18.59,3,3,0,18587.33,6195.78,0.0

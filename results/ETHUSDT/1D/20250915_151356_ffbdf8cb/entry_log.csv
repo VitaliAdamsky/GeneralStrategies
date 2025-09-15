@@ -1,0 +1,3 @@
+timestamp,price,rsi,atr,reason,strategy_id,symbol,timeframe
+2023-08-17,1681.0,20.977470446725476,55.85475777106208,rsi < 30,ffbdf8cb,ETHUSDT,1D
+2024-07-04,3059.31,28.366322549198486,134.56198510038135,rsi < 30,ffbdf8cb,ETHUSDT,1D

@@ -1,2 +1,0 @@
-timestamp,price,rsi,atr,reason,strategy_id,symbol,timeframe
-2023-08-17,26609.7,29.520643372978313,816.912528978644,rsi < 30,332a5ec2,BTCUSDT,1D

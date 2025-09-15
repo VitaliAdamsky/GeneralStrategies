@@ -1,0 +1,2 @@
+entry_datetime,entry_price,exit_datetime,exit_price,size,pnl,pnl_comm,entry_reason,exit_reason,entry_rsi,exit_rsi,entry_atr,exit_atr,strategy_id,symbol,timeframe,duration_sec
+,26609.7,,33074.0,1,6464.299999999999,6431.473964999999,rsi < 30,rsi > 70,29.520643372978313,78.99154679231816,816.912528978644,1253.3224432118077,332a5ec2,BTCUSDT,1D,

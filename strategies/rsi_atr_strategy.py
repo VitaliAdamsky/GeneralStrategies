@@ -7,7 +7,8 @@ class SuperStrategy(bt.Strategy):
         ("take_profit", None),
         ("strategy_id", ""),
         ("symbol", ""),
-        ("timeframe", "")
+        ("timeframe", ""),
+        ("indicators", ["RSI", "ATR"])  # ✅ Добавлено поле с названиями индикаторов
     )
 
     def __init__(self):

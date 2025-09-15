@@ -108,6 +108,8 @@ def extract_trades_from_logs(entry_log, exit_log):
     return df
 
 def run():
+    indicators_used = SuperStrategy.params.indicators
+     
     market_data = load_market_data(SYMBOLS, TIMEFRAMES, start_date=START_DATE, end_date=END_DATE)
     all_combos = list(product(SYMBOLS, TIMEFRAMES, param_grid))
 
@@ -124,6 +126,7 @@ def run():
         strategy_id = hashlib.md5(str(dict(sorted(strategy_only_params.items()))).encode()).hexdigest()[:8]
 
         params.update({
+            "indicators": indicators_used,
             "run_id": run_id,
             "strategy_id": strategy_id,
             "symbol": symbol,
