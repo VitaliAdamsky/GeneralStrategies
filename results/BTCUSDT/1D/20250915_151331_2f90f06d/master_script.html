@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Master Report</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 0;
+            background-color: #1e1e1e;
+            color: #e0e0e0;
+        }
+
+        .chart-container {
+            width: 100vw;
+            height: 800px;
+            margin: 40px 0;
+        }
+
+        .section-title {
+            font-size: 24px;
+            margin: 30px 0 10px;
+            font-weight: bold;
+            color: #ffffff;
+            padding-left: 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1 style="padding-left: 20px;">📊 Master Report</h1>
+    <div class="section-title">Свечной график + сделки</div>
+    <div id="candlestick_chart" class="chart-container"></div>
+
+    <div class="section-title">Кривая капитала</div>
+    <div id="equity_chart" class="chart-container"></div>
+
+    <div class="section-title">Индикаторы</div>
+    <div id="indicators_container"></div>
+
+    <script>
+        async function loadText(url) {
+            const res = await fetch(url);
+            return await res.text();
+        }
+
+        async function loadJSON(url) {
+            const res = await fetch(url);
+            return await res.json();
+        }
+
+        async function loadCSV(url) {
+            const text = await loadText(url);
+            return Papa.parse(text, { header: true, dynamicTyping: true }).data;
+        }
+
+        (async function () {
+            console.log("🟡 Инициализация @", new Date());
+
+            const params = await loadJSON("params.json");
+            const symbol = params.symbol;
+            const timeframe = params.timeframe.toLowerCase();
+            const startDate = new Date(params.start_date);
+            const endDate = new Date(params.end_date);
+            const indicators = params.indicators || [];
+
+            console.log("📦 symbol:", symbol);
+            console.log("📦 timeframe:", timeframe);
+            console.log("📦 startDate:", startDate.toISOString());
+            console.log("📦 endDate:", endDate.toISOString());
+
+            const ohlcRaw = await loadCSV(`../../../../kline_data/${timeframe}/${symbol}.csv`);
+            const entryLog = await loadCSV("entry_log.csv");
+            const exitLog = await loadCSV("exit_log.csv");
+
+            console.log("📊 ohlcRaw.length:", ohlcRaw.length);
+            console.log("📊 entryLog.length:", entryLog.length);
+            console.log("📊 exitLog.length:", exitLog.length);
+            console.log("🔍 Пример OHLC:", ohlcRaw[0]);
+            console.log("🔍 Пример entry:", entryLog[0]);
+            console.log("🔍 Пример exit:", exitLog[0]);
+
+            const ohlcData = ohlcRaw
+                .map(row => {
+                    const date = new Date(row.timestamp);
+                    if (isNaN(date)) console.warn("⚠️ Невалидная дата:", row.timestamp);
+                    return {
+                        date,
+                        values: [row.open, row.close, row.low, row.high],
+                        full: row
+                    };
+                })
+                .filter(row => row.date >= startDate && row.date <= endDate);
+            const ohlcData = ohlcRaw
+                .map(row => {
+                    const date = new Date(row.datetime);
+                    if (isNaN(date)) console.warn("⚠️ Невалидная дата:", row.datetime);
+                    return {
+                        date,
+                        values: [row.open, row.close, row.low, row.high],
+                        full: row
+                    };
+                })
+                .filter(row => {
+                    const inRange = row.date >= startDate && row.date <= endDate;
+                    if (!inRange) console.log("⛔ Отфильтровано:", row.date.toISOString());
+                    return inRange;
+                });
+
+
+            console.log("✅ ohlcData после фильтрации:", ohlcData.length);
+            console.log("📅 Даты OHLC:", ohlcData.map(r => r.date.toISOString().split("T")[0]).slice(0, 5));
+
+            const dateLabels = ohlcData.map(row => row.date.toISOString().split("T")[0]);
+            const candleValues = ohlcData.map(row => row.values);
+
+            const entryPoints = entryLog.map(e => {
+                if (!e.timestamp || !e.price) console.warn("⚠️ Пропущенный entry:", e);
+                return {
+                    date: new Date(e.timestamp).toISOString().split("T")[0],
+                    price: e.price
+                };
+            });
+
+            const exitPoints = exitLog.map(e => {
+                if (!e.timestamp || !e.price) console.warn("⚠️ Пропущенный exit:", e);
+                return {
+                    date: new Date(e.timestamp).toISOString().split("T")[0],
+                    price: e.price
+                };
+            });
+
+            console.log("✅ entryPoints:", entryPoints.length);
+            console.log("✅ exitPoints:", exitPoints.length);
+            console.log("📈 Пример точки входа:", entryPoints[0]);
+            console.log("📈 Пример точки выхода:", exitPoints[0]);
+
+            const equityCurve = [];
+            let equity = 100000;
+            const commissionRate = 0.00055;
+
+            for (let i = 0; i < Math.min(entryLog.length, exitLog.length); i++) {
+                const entry = entryLog[i];
+                const exit = exitLog[i];
+                const size = entry.size || 1;
+                const pnl = (exit.price - entry.price) * size;
+                const commission = commissionRate * (entry.price + exit.price) * size;
+                equity += pnl - commission;
+                const date = new Date(exit.timestamp).toISOString().split("T")[0];
+                equityCurve.push({ date, value: equity });
+            }
+
+            console.log("📈 equityCurve.length:", equityCurve.length);
+            console.log("📈 Последнее значение капитала:", equity);
+
+            const candleChart = echarts.init(document.getElementById("candlestick_chart"));
+            candleChart.setOption({
+                backgroundColor: '#1e1e1e',
+                title: { text: `${symbol} ${timeframe} — Свечной график + сделки`, textStyle: { color: '#fff' } },
+                tooltip: { trigger: 'axis' },
+                xAxis: { type: 'category', data: dateLabels, axisLabel: { color: '#ccc' } },
+                yAxis: { type: 'value', axisLabel: { color: '#ccc' } },
+                series: [
+                    {
+                        type: 'candlestick',
+                        data: candleValues,
+                        itemStyle: {
+                            color: '#00ff00',
+                            color0: '#ff0000',
+                            borderColor: '#00ff00',
+                            borderColor0: '#ff0000'
+                        }
+                    },
+                    {
+                        name: 'Входы',
+                        type: 'scatter',
+                        symbol: 'triangle',
+                        symbolSize: 12,
+                        itemStyle: { color: 'lime' },
+                        data: entryPoints.map(p => [p.date, p.price])
+                    },
+                    {
+                        name: 'Выходы',
+                        type: 'scatter',
+                        symbol: 'triangle',
+                        symbolRotate: 180,
+                        symbolSize: 12,
+                        itemStyle: { color: 'red' },
+                        data: exitPoints.map(p => [p.date, p.price])
+                    }
+                ]
+            });
+
+            const equityChart = echarts.init(document.getElementById("equity_chart"));
+            equityChart.setOption({
+                backgroundColor: '#1e1e1e',
+                title: { text: 'Кривая капитала', textStyle: { color: '#fff' } },
+                tooltip: { trigger: 'axis' },
+                xAxis: { type: 'category', data: equityCurve.map(p => p.date), axisLabel: { color: '#ccc' } },
+                yAxis: { type: 'value', axisLabel: { color: '#ccc' } },
+                series: [{
+                    type: 'line',
+                    data: equityCurve.map(p => p.value),
+                    smooth: true,
+                    lineStyle: { color: '#00bfff', width: 3 }
+                }]
+            });
+
+            const indicatorsContainer = document.getElementById("indicators_container");
+            for (const name of indicators) {
+                const id = `${name.toLowerCase()}_chart`;
+                const div = document.createElement("div");
+                div.className = "chart-container";
+                div.id = id;
+                indicatorsContainer.appendChild(div);
+
+                const indicatorData = ohlcData.map(p => ({
+                    date: p.date.toISOString().split("T")[0],
+                    value: p.full[name.toLowerCase()]
+                })).filter(p => p.value !== undefined);
+
+                console.log(`📊 Индикатор ${name}:`, indicatorData.length, "точек");
+
+                echarts.init(div).setOption({
+                    backgroundColor: '#1e1e1e',
+                    title: { text: name, textStyle: { color: '#fff' } },
+                    tooltip: { trigger: 'axis' },
+                    xAxis: { type: 'category', data: indicatorData.map(p => p.date), axisLabel: { color: '#ccc' } },
+                    yAxis: { type: 'value', axisLabel: { color: '#ccc' } },
+                    series: [{
+                        type: 'line',
+                        data: indicatorData.map(p => p.value),
+                        smooth: true,
+                        lineStyle: { color: '#ffa500', width: 2 }
+                    }]
+                });
+            }
+        })();
+    </script>
+
+</body>
+
+</html>

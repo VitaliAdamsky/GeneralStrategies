@@ -1,15 +1,15 @@
 import backtrader as bt
 
 class SuperStrategy(bt.Strategy):
+    
     params = (
-        ("rsi_period", 14),
-        ("atr_period", 14),
-        ("take_profit", None),
-        ("strategy_id", ""),
-        ("symbol", ""),
-        ("timeframe", ""),
-        ("indicators", ["RSI", "ATR"])  # ✅ Добавлено поле с названиями индикаторов
+    ("take_profit", None),
+    ("strategy_id", ""),
+    ("symbol", ""),
+    ("timeframe", ""),
+    ("indicators", [ {"name": "RSI", "len": 14}, {"name": "ATR", "len": 14} ])
     )
+
 
     def __init__(self):
         self.rsi = bt.indicators.RSI(self.data.close, period=self.params.rsi_period)
