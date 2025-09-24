@@ -15,6 +15,7 @@ from .reporting import (
 )
 from .visualization import plot_strategy_chart
 from .take_profit_config import TakeProfitMode, ExitType
+from .enums import Timeframes
 
 __all__ = [
     "load_market_data",
@@ -34,3 +35,5 @@ __all__ = [
     "TakeProfitMode",
     "ExitType"
 ]
+
+ 

@@ -5,13 +5,21 @@ def plot_strategy_chart(df, entry_log, exit_log, indicators, save_path):
     num_indicators = len(indicators)
     total_rows = 1 + num_indicators  # 1 row for candles + N for indicators
 
+    # === Защита от деления на ноль ===
+    if num_indicators == 0:
+        row_heights = [1.0]
+        subplot_titles = ["Price"]
+    else:
+        row_heights = [0.6] + [0.4 / num_indicators] * num_indicators
+        subplot_titles = ["Price"] + list(indicators.keys())
+
     fig = make_subplots(
         rows=total_rows,
         cols=1,
         shared_xaxes=True,
         vertical_spacing=0.03,
-        row_heights=[0.6] + [0.4 / num_indicators] * num_indicators,
-        subplot_titles=["Price"] + list(indicators.keys())
+        row_heights=row_heights,
+        subplot_titles=subplot_titles
     )
 
     # === Свечи ===
